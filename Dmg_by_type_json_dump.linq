@@ -3,6 +3,36 @@
   <Namespace>System.Text.Json</Namespace>
 </Query>
 
+public class JsonOutputGenerator 
+{
+    public static string GenerateJson(CombatAnalysis analysis)
+    {
+        var output = new
+        {
+            combatSummary = new
+            {
+                totalDamageByType = analysis.DamageByType,
+                totalMisses = analysis.TotalMisses,
+                totalFailedCasts = analysis.TotalFailedCasts
+            },
+            abilityDetails = analysis.AbilityStats.Select(kvp => new
+            {
+                name = kvp.Key,
+                stats = new
+                {
+                    totalDamage = kvp.Value.TotalDamage,
+                    hits = kvp.Value.Hits,
+                    crits = kvp.Value.Crits,
+                    averageDamage = Math.Round(kvp.Value.AverageDamage, 2),
+                    critRate = Math.Round(kvp.Value.CritRate * 100, 2)
+                }
+            })
+        };
+
+        return JsonSerializer.Serialize(output, new JsonSerializerOptions { WriteIndented = true });
+    }
+}
+
 public class AbilityStats
 {
     public int TotalDamage { get; private set; }
@@ -53,31 +83,6 @@ public class CombatAnalysis
 
     public void AddMiss(string message) => TotalMisses++;
     public void AddFailedCast(string message) => TotalFailedCasts++;
-}
-
-void Main()
-{
-    Console.WriteLine("Reading combat log...");
-    var json = File.ReadAllText(@"C:\Users\Glennwiz\AppData\Local\Temp\Visionary Realms\Pantheon\Whispering Lands (1)\Mxx\Combat");
-    Console.WriteLine($"Raw JSON length: {json.Length}");
-    
-    Console.WriteLine("\nParsing combat log...");
-    var combatData = JsonSerializer.Deserialize<CombatLog>(json);
-    Console.WriteLine($"Total messages: {combatData.Messages.Count}");
-    
-    var analyzer = new CombatAnalyzer(combatData);
-    
-    Console.WriteLine("\nGenerating analysis JSON...");
-    var jsonOutput = JsonOutputGenerator.GenerateJson(analyzer.Analysis);
-    Console.WriteLine("Analysis JSON:");
-    Console.WriteLine(jsonOutput);
-    
-    analyzer.Analysis.Dump("Combat Analysis");
-
-    
-    analyzer.Analysis.Dump("Combat Analysis");
-    analyzer.GetDetailedAbilityStats().Dump("Detailed Ability Stats");
-    analyzer.GetFailureAnalysis().Dump("Failure Analysis");
 }
 
 public class CombatAnalyzer
@@ -228,4 +233,22 @@ public class DamageEvent
     public string DamageType { get; set; }
     public bool IsCritical { get; set; }
     public bool IsMitigated { get; set; }
+}
+
+void Main()
+{
+    Console.WriteLine("Reading combat log...");
+    var json = File.ReadAllText(@"C:\Users\Glennwiz\AppData\Local\Temp\Visionary Realms\Pantheon\Whispering Lands (1)\Mxx\Combat");
+    Console.WriteLine($"Raw JSON length: {json.Length}");
+    
+    var combatData = JsonSerializer.Deserialize<CombatLog>(json);
+    var analyzer = new CombatAnalyzer(combatData);
+    
+    var jsonOutput = JsonOutputGenerator.GenerateJson(analyzer.Analysis);
+    Console.WriteLine("\nAnalysis JSON:");
+    Console.WriteLine(jsonOutput);
+    
+    analyzer.Analysis.Dump("Combat Analysis");
+    analyzer.GetDetailedAbilityStats().Dump("Detailed Ability Stats");
+    analyzer.GetFailureAnalysis().Dump("Failure Analysis");
 }
